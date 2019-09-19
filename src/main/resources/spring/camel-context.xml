@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+    xmlns:cxf="http://camel.apache.org/schema/cxf"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd        http://camel.apache.org/schema/spring        http://camel.apache.org/schema/spring/camel-spring.xsd  http://camel.apache.org/schema/cxf http://camel.apache.org/schema/cxf/camel-cxf-2.8.3.xsd">
+    <bean class="org.slf4j.LoggerFactory" factory-method="getLogger" id="rh1">
+        <constructor-arg index="0" value="rh1"/>
+    </bean>
+    <!--     <bean class="org.mycompany.QuickstartConfiguration" id="prop"/> -->
+    <!--     <bean class="org.apache.commons.dbcp.BasicDataSource" -->
+    <!--         destroy-method="close" id="dataSource"> -->
+    <!--         <property name="driverClassName" value="org.postgresql.Driver"/> -->
+    <!--         <property name="url" value="${quickstart.url}"/> -->
+    <!--         <property name="username" value="${quickstart.recipients}"/> -->
+    <!--         <property name="password" value="${quickstart.recipientu}"/> -->
+    <!--     </bean> -->
+    <!--     <bean class="org.apache.camel.component.sql.SqlComponent" id="sql"> -->
+    <!--         <property name="dataSource" ref="dataSource"/> -->
+    <!--     </bean> -->
+    <bean class="org.mycompany.PrepareMailingNotificationProcessor" id="prepareMailingNotificationProcessor"/>
+    <camelContext id="camel" streamCache="true" threadNamePattern="100" xmlns="http://camel.apache.org/schema/spring">
+        <threadPoolProfile defaultProfile="true" id="changedProfile"
+            maxQueueSize="100" poolSize="3"/>
+        <endpoint id="sedaCorreoSoporteEndpoint" uri="seda:mailErrorNotification"/>
+        <redeliveryPolicyProfile id="redeliveryPolicy"
+            logRetryAttempted="true" maximumRedeliveries="3"
+            redeliveryDelay="10" retriesExhaustedLogLevel="WARN"/>
+        <onException id="CustomExceptionHandling"
+            redeliveryPolicyRef="redeliveryPolicy" useOriginalMessage="true">
+            <description/>
+            <exception>java.lang.Exception</exception>
+            <handled>
+                <constant>true</constant>
+            </handled>
+            <log id="logBodyRequest" loggerRef="rh1"
+                loggingLevel="ERROR" message="Exception: ${exception.message}, StackTrace:      ${exception.stacktrace}"/>
+            <setHeader headerName="trazaerror">
+                <simple>${exception.stacktrace}</simple>
+            </setHeader>
+            <to pattern="InOnly" uri="ref:sedaCorreoSoporteEndpoint"/>
+        </onException>
+        <route id="simple-route">
+            <from id="_from1" uri="timer:timerName?period=10000s"/>
+            <setBody id="_setBody1">
+                <simple>microservicereferencearchetypefuse</simple>
+             </setBody>
+             <log loggingLevel="INFO" loggerRef="rh1" message="::${body}:::"></log>
+        </route>
+        <route customId="true" id="NOTIFICATION" streamCache="true">
+            <from id="_from2" uri="ref:sedaCorreoSoporteEndpoint"/>
+            <doTry id="_doTry1">
+                <log id="_log10" loggerRef="rh1" loggingLevel="INFO" message="Notificando el Error: ${header.trazaerror}"/>
+                <setHeader headerName="DescripcionError" id="_setHeader1">
+                    <simple> ${header.trazaerror}</simple>
+                </setHeader>
+                <setHeader headerName="NombreServicio" id="NombreServicio">
+                    <simple>{{application.service.name}}</simple>
+                </setHeader>
+                <setHeader headerName="TipoServicio" id="TipoServicio">
+                    <simple>{{application.service.type}}</simple>
+                </setHeader>
+                <setProperty id="_setProperty10" propertyName="mailTo">
+                    <simple>{{email.to}}</simple>
+                </setProperty>
+                <setProperty id="_setProperty11" propertyName="mailFrom">
+                    <simple>{{email.from}}</simple>
+                </setProperty>
+                <setProperty id="_setProperty12" propertyName="mailSubject">
+                    <simple>{{email.subject}}</simple>
+                </setProperty>
+                <setProperty id="_setProperty13" propertyName="mailTemplate">
+                    <constant>PlantillaCorreo</constant>
+                </setProperty>
+                <process id="_process6" ref="prepareMailingNotificationProcessor">
+                    <description>Create request to send to notification queue</description>
+                </process>
+                <log id="_log11" loggerRef="rh1" loggingLevel="INFO" message="Enviando mensaje a la JMS de Notificaciones: ${body}"/>
+                <!--                 <inOnly id="_inOnly1" uri="activemq:queue:{{email.notification.queue.name}}"/> -->
+                <doCatch id="_doCatch1">
+                    <exception>java.lang.Exception</exception>
+                    <handled>
+                        <constant>true</constant>
+                    </handled>
+                    <log id="_log12" loggerRef="rh1"
+                        loggingLevel="ERROR" message="Error enviando mensaje al QUEUE: {{email.notification.queue.name}}, MessageError: ${exception.message}"/>
+                </doCatch>
+            </doTry>
+        </route>
+    </camelContext>
+</beans>
