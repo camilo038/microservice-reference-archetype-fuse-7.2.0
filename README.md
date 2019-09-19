@@ -1,22 +1,22 @@
 Spring-Boot Camel QuickStart
 Imagen Base
 
-Instalar
+#Instalar
 mvn clean install
 
-Crear secrets
+#Crear secrets
 oc create -f secret.yml
 
-Crear Propiedades***********Por favor verfifique los valos correspodientes a su ambiente
+#Crear Propiedades***********Por favor verfifique los valos correspodientes a su ambiente
 oc create configmap microservicereferencearchetypefuse --from-literal=quickstart.usuariodb=postgres --from-literal=quickstart.passwddb=wana1200
 
-Desplegar en OpenShift
+#Desplegar en OpenShift
 mvn clean -DskipTests fabric8:deploy -Popenshift
 
-To list all the running pods:
+#To list all the running pods:
 
 oc get pods
 Log oc logs
 
-Desplegar Local
+#Desplegar Local
 Spring-boot:run
